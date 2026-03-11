@@ -1,13 +1,21 @@
-all: chasm as
-chasm: chasm.cpp
-	g++ -ggdb -Wall -Wextra chasm.cpp -o chasm
+CXX := g++
+CXXFLAGS := -ggdb -Wall -Wextra
+
+SRC := $(wildcard *.cpp)
+HEADERS := $(wildcard *.hpp)
+
+all: chasm
+
+chasm: $(SRC) $(HEADERS)
+	$(CXX) $(CXXFLAGS) $(SRC) -o $@
+
 clean:
-	rm chasm
+	rm -f chasm gas.bin
+	rm -rf temp
 
 as: temp
-	mips-linux-gnu-as main.asm -o ./temp/gas.o
-	mips-linux-gnu-objcopy -O binary ./temp/gas.o gas.bin
-	# mv main.obj gas.bin
+	mips-linux-gnu-as main.asm -o temp/gas.o
+	mips-linux-gnu-objcopy -O binary temp/gas.o gas.bin
 
 temp:
-	mkdir -p temp/
+	mkdir -p temp

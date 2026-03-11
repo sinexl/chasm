@@ -2,9 +2,13 @@
 
 #include "util.hpp"
 #include "register.hpp"
+#include <iostream>
 #include <memory>
 #include <ostream>
+#include <string_view>
 #include <vector>
+
+#include "lexer.hpp"
 
 using namespace std;
 
@@ -171,13 +175,26 @@ struct Function
     }
 };
 
-
 int main()
 {
     using namespace op;
     Function func{};
     assert(Add(Reg::t0, Reg::t1, Reg::t2).encode() == 0x12a4020);
     assert(Addi(Reg::t0, Reg::s1, -50).encode() == 0x2228ffce);
+    const char* path = "main.asm";
+    auto contents = read_file_to_string(path);
+
+    auto view = string_view(contents);
+    auto lexer = Lexer(view, path);
+
+    do
+    {
+        Token t = lexer.next_token();
+        cout << t << endl;
+
+    } while (!lexer.is_eof());
+
+
 
 
     return 0;

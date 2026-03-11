@@ -3,7 +3,7 @@
 
 
 #include <cstdint>
-#include <fstream>
+#include <ostream>
 #include <string>
 using u8 = uint8_t;
 using u16 = uint16_t;
@@ -14,14 +14,14 @@ constexpr u32 MASK6  = 0x3F;       // 0000...111111    (6 rightmost bits)
 constexpr u32 MASK16 = 0xFFFF;     // 0000...111111... (16 rightmost bits)
 constexpr u32 MASK26 = 0x03FFFFFF; // 0000...111111... (26 rightmost bits)
 
+std::string read_file_to_string(const char *filename);
 
-std::string read_file_to_string(const char* filename)
-{
-    std::ifstream stream{filename};
-    std::string file_contents{std::istreambuf_iterator(stream), std::istreambuf_iterator<char>()};
-    return file_contents;
-}
+struct SourceLocation {
 
+    const char* file;
+    size_t line, offset;
+};
 
+std::ostream& operator<<(std::ostream& os, const SourceLocation& loc);
 
 #endif // UTIL_H_

@@ -1,2 +1,3 @@
 main:
-    j $0x00400020
+    j exit
+exit:
