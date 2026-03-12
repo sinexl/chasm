@@ -1,6 +1,8 @@
 #ifndef CHASM_LEXER_HPP
 #define CHASM_LEXER_HPP
 #include <string_view>
+
+#include "register.hpp"
 #include "util.hpp"
 using namespace std;
 
@@ -13,10 +15,10 @@ enum class TokenType
     // Syntax
     Eof,
     Identifier,
-    Colon,
     Comma,
-    Dot,
-    Dollar,
+    LabelDefinition,
+
+    Register,
 
     // Instructions
     FIRST_INSTRUCTION,
@@ -28,24 +30,41 @@ enum class TokenType
     And,
     J,
     Jr,
+    Sub,
 
     COUNT,
 };
 
 const char* get_string(TokenType t);
 
-struct Token
-{
 
+class Token
+{
+private:
     TokenType type;
-    std::string text;
     SourceLocation loc;
 
-    Token(TokenType type, std::string&& text, SourceLocation loc);
+    std::string str_;
+    reg::Reg reg_;
+
+    Token(TokenType type, SourceLocation loc, string text);
+    Token(SourceLocation loc, reg::Reg reg);
+
+public:
 
     static Token eof(SourceLocation loc);
-    static Token from_string(std::string&& str, SourceLocation loc);
-    [[nodiscard]] bool is_eof() const;
+    static Token instruction(SourceLocation loc, TokenType type);
+    static Token label_definition(SourceLocation loc, std::string name);
+    static Token identifier(SourceLocation loc, std::string text);
+    static Token comma(SourceLocation loc);
+    static Token reg(SourceLocation loc, reg::Reg reg);
+
+    std::string get_text() const;
+    reg::Reg get_reg() const;
+    TokenType get_type() const;
+    SourceLocation get_source_location() const;
+
+    bool is_eof() const;
 };
 
 std::ostream& operator<<(std::ostream& os, const Token& obj);
@@ -73,12 +92,16 @@ public:
 
     Token next_token();
 
-    [[nodiscard]] SourceLocation source_loc() const;
+    SourceLocation source_loc() const;
+    SourceLocation token_start_loc() const;
 
-    [[nodiscard]] bool is_eof() const;
+    bool is_eof() const;
 
 private:
     char consume_char();
+
+    std::string_view consume_identifier();
+    std::string_view consume_word();
 
     char peek() const;
 };

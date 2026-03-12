@@ -11,7 +11,7 @@ public:
     virtual ~Item() = default;
 };
 
-class Label : public Item
+class Label final : public Item
 {
     string name;
 };
@@ -95,10 +95,6 @@ protected:
     }
 };
 
-inline u8 reg_u8(Reg r)
-{
-    return static_cast<u8>(r);
-}
 
 template <
     const u8 op // [6] - opcode

@@ -13,8 +13,7 @@
 #include "op.hpp"
 
 using namespace std;
-
-
+using namespace reg;
 
 class Assembler
 {
@@ -39,36 +38,32 @@ bool parse_function(Lexer& lexer, Assembler& as)
         Token t = lexer.next_token();
         cout << t << endl;
 
-        switch (t.type)
+        switch (t.get_type())
         {
         case TokenType::Eof:
             stop = true;
             break;
+        case TokenType::Register:
         case TokenType::Identifier:
-            break;
         case TokenType::Comma:
-        case TokenType::Colon:
+        case TokenType::LabelDefinition:
             break;
-        case TokenType::Dot:
-            break;
-        case TokenType::Dollar:
-            break;
+
+        // Instructions
         case TokenType::Add:
+        case TokenType::Sub:
+        case TokenType::Addi:
         case TokenType::Addu:
         case TokenType::Addiu:
-        case TokenType::Addi:
-
         case TokenType::Or:
         case TokenType::And:
-            break;
         case TokenType::J:
         case TokenType::Jr:
-            assert(false && "NOT IMPLEMENTED: J\n");
-        case TokenType::FIRST_INSTRUCTION:
+            break;
+
         case TokenType::COUNT:
-            fprintf(stderr, "ERROR: TokenType::FIRST_INSTRUCTION & TokenType::COUNT should never be used\n");
-            exit(-1);
-        default: assert(false && "UNREACHABLE");
+        case TokenType::FIRST_INSTRUCTION:
+            throw std::out_of_range("ERROR: TokenType::FIRST_INSTRUCTION & TokenType::COUNT should never be used");
         }
         if (stop) break;
     }
