@@ -10,11 +10,25 @@ bool is_id_continue(char c);
 
 enum class TokenType
 {
+    // Syntax
     Eof,
     Identifier,
     Colon,
+    Comma,
     Dot,
     Dollar,
+
+    // Instructions
+    FIRST_INSTRUCTION,
+    Add,
+    Addi,
+    Addu,
+    Addiu,
+    Or,
+    And,
+    J,
+    Jr,
+
     COUNT,
 };
 
@@ -30,8 +44,7 @@ struct Token
     Token(TokenType type, std::string&& text, SourceLocation loc);
 
     static Token eof(SourceLocation loc);
-
-
+    static Token from_string(std::string&& str, SourceLocation loc);
     [[nodiscard]] bool is_eof() const;
 };
 

@@ -5,6 +5,7 @@
 #include <ostream>
 #include <stdexcept>
 
+#include "op.hpp"
 #include "util.hpp"
 
 Lexer::State::State() : current(0), line_start(0), line_number(1)
@@ -41,17 +42,19 @@ Token Lexer::next_token()
             consume_char();
 
         auto result = string(src.data() + token_start.current, src.data() + state.current);
-        return Token(TokenType::Identifier, std::move(result), token_start.to_source_loc(filepath));
+        return Token::from_string(std::move(result), token_start.to_source_loc(filepath));
     }
     consume_char();
     switch (current)
     {
     case ':':
-        return Token(TokenType::Colon, "", token_start.to_source_loc(filepath));
+        return {TokenType::Colon, "", token_start.to_source_loc(filepath)};
     case '.':
-        return Token(TokenType::Dot, "", token_start.to_source_loc(filepath));
+        return {TokenType::Dot, "", token_start.to_source_loc(filepath)};
     case '$':
-        return Token(TokenType::Dollar, "", token_start.to_source_loc(filepath));
+        return {TokenType::Dollar, "", token_start.to_source_loc(filepath)};
+    case ',':
+        return {TokenType::Comma, "", token_start.to_source_loc(filepath)};
     default: break;
     }
     cerr << "UNEXPECTED CHARACTER: " << current << endl;
@@ -93,13 +96,24 @@ char Lexer::peek() const
 ///////////////////////////////////////////////////////////////////////////////
 
 
-
-Token::Token(TokenType type, std::string&& text, SourceLocation loc): type(type), text(text), loc(loc)
-{}
+Token::Token(TokenType type, std::string&& text, SourceLocation loc) : type(type), text(text), loc(loc)
+{
+}
 
 Token Token::eof(SourceLocation loc)
 {
-    return Token(TokenType::Eof, "", loc);
+    return {TokenType::Eof, "", loc};
+}
+
+Token Token::from_string(std::string&& str, SourceLocation loc)
+{
+    auto kind = op::kind_from_word(str);
+    if (kind == TokenType::Identifier)
+    {
+        return {TokenType::Identifier, std::move(str), loc};
+    }
+
+    return {kind, "", loc};
 }
 
 
@@ -113,12 +127,11 @@ std::ostream& operator<<(std::ostream& os, const Token& obj)
     os
         << obj.loc << ": "
         << get_string(obj.type);
-    if (obj.text.length() > 0)
+    if (!obj.text.empty())
     {
         os << " text: " << obj.text;
     }
     return os;
-
 }
 
 bool is_id_start(char c)
@@ -133,14 +146,29 @@ bool is_id_continue(char c)
 
 const char* get_string(TokenType t)
 {
-    static_assert(static_cast<int>(TokenType::COUNT) == 5);
+    static_assert(static_cast<int>(TokenType::COUNT) == 15);
     switch (t)
     {
     case TokenType::Eof: return "EOF";
     case TokenType::Identifier: return "Identifier";
     case TokenType::Colon: return "Colon";
+    case TokenType::Comma: return "Comma";
     case TokenType::Dot: return "Dot";
     case TokenType::Dollar: return "Dollar";
+
+    case TokenType::Add: return "add";
+    case TokenType::Addi: return "addi";
+    case TokenType::Addu: return "addu";
+    case TokenType::Addiu: return "addiu";
+    case TokenType::Or: return "or";
+    case TokenType::And: return "and";
+    case TokenType::Jr: return "jr";
+    case TokenType::J: return "j";
+
+    case TokenType::FIRST_INSTRUCTION:
+    case TokenType::COUNT:
+        fprintf(stderr, "ERROR: TokenType::FIRST_INSTRUCTION & TokenType::COUNT should never be used\n");
+        exit(-1);
     default: assert(false && "UNREACHABLE");
     }
 }

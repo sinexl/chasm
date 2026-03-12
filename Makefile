@@ -1,5 +1,5 @@
 CXX := g++
-CXXFLAGS := -ggdb -Wall -Wextra
+CXXFLAGS := -ggdb -Wall -Wextra -Wswitch-enum
 
 SRC := $(wildcard *.cpp)
 HEADERS := $(wildcard *.hpp)
