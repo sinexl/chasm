@@ -3,39 +3,66 @@
 #include <unordered_map>
 #include <string_view>
 
-#include "format.hpp"
 #include "register.hpp"
 using namespace std;
-#include "lexer.hpp"
 
 namespace op
 {
 
+enum class RFormatInstruction: int {
+    Add,
+    Addu,
+    Sub,
+    Subu,
+    Or,
+    And,
+    Jr,
+    COUNT,
+};
+enum class IFormatInstruction: int {
+    Addi,
+    Addiu,
+    COUNT,
+};
+
 using namespace reg;
-static const std::unordered_map<string_view, TokenType> strings {
+static const std::unordered_map<string_view, RFormatInstruction> r_format_strings {
     {
-        {"add", TokenType::Add},
-        {"sub", TokenType::Sub},
-        {"addi", TokenType::Addi},
-        {"addu", TokenType::Addu},
-        {"addiu", TokenType::Addiu},
-        {"or", TokenType::Or},
-        {"and", TokenType::And},
-        {"j", TokenType::J},
-        {"jr", TokenType::Jr}
+        {"add", RFormatInstruction::Add},
+        {"sub", RFormatInstruction::Sub},
+        {"subu", RFormatInstruction::Subu},
+        {"addu", RFormatInstruction::Addu},
+        {"or", RFormatInstruction::Or},
+        {"and", RFormatInstruction::And},
+        {"jr", RFormatInstruction::Jr},
     }
 };
-static_assert(9 == static_cast<int>(TokenType::COUNT) - static_cast<int>(TokenType::FIRST_INSTRUCTION) - 1);
-struct Add final : RFormat<0x00, 0b100000> { Add(Reg rd, Reg rs, Reg rt) : RFormat(reg_u8(rs), reg_u8(rt), reg_u8(rd), 0) { } };
-struct Addi final : IFormat<0b001000> { Addi(Reg rt, Reg rs, u16 imm) : IFormat(reg_u8(rs), reg_u8(rt), imm) { } };
-// Add but no trap on overflow
-struct Addu final : RFormat<0x00, 0b100001> { Addu(Reg rd, Reg rs, Reg rt) : RFormat(reg_u8(rs), reg_u8(rt), reg_u8(rd), 0) { } };
-struct Addiu final : IFormat<0b001001> { Addiu(Reg rt, Reg rs, u16 imm) : IFormat(reg_u8(rs), reg_u8(rt), imm) { } };
+static_assert(7 == static_cast<int>(RFormatInstruction::COUNT));
 
-struct Or final : RFormat<0x00, 0b100101> { Or(Reg rd, Reg rs, Reg rt) : RFormat(reg_u8(rs), reg_u8(rt), reg_u8(rd), 0) { } };
-struct And final : RFormat<0x00, 0b100100> { And(Reg rd, Reg rs, Reg rt) : RFormat(reg_u8(rs), reg_u8(rt), reg_u8(rd), 0) { } };
+static  const std::unordered_map<string_view, IFormatInstruction> i_format_strings {
+        {"addi", IFormatInstruction::Addi},
+        {"addiu", IFormatInstruction::Addiu},
+};
+static_assert(2 == static_cast<int>(IFormatInstruction::COUNT));
 
-struct J final : JFormat<0b000010> { explicit J(u32 address) : JFormat(address) { } };
-struct Jr final : RFormat<0x00, 0b0001000> { explicit Jr(Reg rs) : RFormat(reg_u8(rs), 0, 0, 0) { } };
+//                                                    opcode, funct
+static const std::unordered_map<RFormatInstruction, pair<u8, u8>> r_format_codes {
+    {RFormatInstruction::Add,  {0b000000, 0b100000}},
+    {RFormatInstruction::Addu, {0b000000, 0b100001}},
+    {RFormatInstruction::Sub,  {0b000000, 0b100010}},
+    {RFormatInstruction::Subu, {0b000000, 0b100011}},
+    {RFormatInstruction::Or,   {0b000000, 0b100101}},
+    {RFormatInstruction::And,  {0b000000, 0b100100}},
+    {RFormatInstruction::Jr,   {0b000000, 0b001000}},
+};
+static_assert(7 == static_cast<int>(RFormatInstruction::COUNT));
+
+//                                                  opcode
+static const std::unordered_map<IFormatInstruction, u8> i_format_codes {
+    {IFormatInstruction::Addi,  0b001000 },
+    {IFormatInstruction::Addiu, 0b001001 },
+};
+static_assert(2 == static_cast<int>(IFormatInstruction::COUNT));
+
 }
 #endif //CHASM_OP_HPP

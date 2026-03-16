@@ -15,7 +15,7 @@ clean:
 
 as: temp
 	mips-linux-gnu-as main.asm -o temp/gas.o
-	mips-linux-gnu-objcopy -O binary temp/gas.o gas.bin
+	mips-linux-gnu-objcopy -O binary -j .text temp/gas.o ./dev/gas.bin
 
 temp:
 	mkdir -p temp

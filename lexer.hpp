@@ -2,66 +2,64 @@
 #define CHASM_LEXER_HPP
 #include <string_view>
 
+#include "op.hpp"
 #include "register.hpp"
 #include "util.hpp"
 using namespace std;
+using namespace op;
 
 bool is_id_start(char c);
 
 bool is_id_continue(char c);
 
-enum class TokenType
+enum class TokenType: int
 {
-    // Syntax
     Eof,
     Identifier,
     Comma,
     LabelDefinition,
 
     Register,
-
-    // Instructions
-    FIRST_INSTRUCTION,
-    Add,
-    Addi,
-    Addu,
-    Addiu,
-    Or,
-    And,
-    J,
-    Jr,
-    Sub,
-
-    COUNT,
+    RFormatInstruction,
+    IFormatInstruction,
 };
 
+
+
 const char* get_string(TokenType t);
+const char* get_string(RFormatInstruction instruction);
+const char* get_string(IFormatInstruction instruction);
 
 
 class Token
 {
-private:
     TokenType type;
     SourceLocation loc;
 
-    std::string str_;
-    reg::Reg reg_;
+    std::string text_;
+    Reg register_;
+    RFormatInstruction r_format_;
+    IFormatInstruction i_format_;
 
     Token(TokenType type, SourceLocation loc, string text);
-    Token(SourceLocation loc, reg::Reg reg);
+    Token(SourceLocation loc, Reg reg);
+    Token(SourceLocation loc, RFormatInstruction r_format);
+    Token(SourceLocation loc, IFormatInstruction i_format);
 
 public:
-
     static Token eof(SourceLocation loc);
-    static Token instruction(SourceLocation loc, TokenType type);
+    static Token r_format(SourceLocation loc, RFormatInstruction instruction);
+    static Token i_format(SourceLocation loc, IFormatInstruction instruction);
     static Token label_definition(SourceLocation loc, std::string name);
     static Token identifier(SourceLocation loc, std::string text);
     static Token comma(SourceLocation loc);
-    static Token reg(SourceLocation loc, reg::Reg reg);
+    static Token reg(SourceLocation loc, Reg reg);
 
     std::string get_text() const;
-    reg::Reg get_reg() const;
+    Reg get_reg() const;
     TokenType get_type() const;
+    RFormatInstruction get_r_format() const;
+    IFormatInstruction get_i_format() const;
     SourceLocation get_source_location() const;
 
     bool is_eof() const;
