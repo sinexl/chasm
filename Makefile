@@ -1,8 +1,8 @@
 CXX := g++
 CXXFLAGS := -ggdb -Wall -Wextra -Wswitch-enum
 
-SRC := $(wildcard *.cpp)
-HEADERS := $(wildcard *.hpp)
+SRC := $(wildcard src/*.cpp)
+HEADERS := $(wildcard src/*.hpp)
 
 all: chasm
 

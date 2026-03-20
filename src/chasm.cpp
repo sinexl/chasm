@@ -5,10 +5,10 @@
 #include <iostream>
 #include <memory>
 #include <ostream>
-#include <sstream>
 #include <string_view>
 #include <vector>
 
+#include "exceptions.hpp"
 #include "format.hpp"
 #include "register.hpp"
 #include "util.hpp"
@@ -53,33 +53,6 @@ public:
     }
 };
 
-
-class ParserException : std::exception
-{
-public:
-    const char* what() const noexcept override = 0;
-};
-
-class UnexpectedToken : ParserException
-{
-    string msg_;
-
-public:
-    TokenType expected;
-    TokenType actual;
-
-    UnexpectedToken(TokenType expected, TokenType actual) : expected(expected), actual(actual)
-    {
-        ostringstream ss;
-        ss << "error: unexpected token. Expected " << get_string(expected) << ", but got: " << get_string(actual);
-        msg_ = ss.str();
-    }
-
-    const char* what() const noexcept override
-    {
-        return msg_.c_str();
-    };
-};
 
 
 Token expect(Lexer& lexer, TokenType expected)
@@ -126,11 +99,8 @@ void parse_program(Lexer& lexer, Assembler& assembler)
         case TokenType::Eof:
             stop = true;
             break;
-        case TokenType::Register:
-        case TokenType::Identifier:
-        case TokenType::Comma:
         case TokenType::LabelDefinition:
-            assert(false && "NOT IMPLEMENTED");
+            assert(false && "NOT IMPLEMENTED YET: LABELS");
 
         case TokenType::RFormatInstruction:
             {
@@ -139,7 +109,15 @@ void parse_program(Lexer& lexer, Assembler& assembler)
                 break;
             }
         case TokenType::IFormatInstruction:
-            assert(false && "NOT IMPLEMENTED YET");
+            assert(false && "NOT IMPLEMENTED YET: I FORMAT INSTRUCTIONS");
+
+        case TokenType::JFormatInstruction:
+            assert(false && "NOT IMPLEMENTED YET: J FORMAT INSTRUCTIONS");
+
+        case TokenType::Register:
+        case TokenType::Identifier:
+        case TokenType::Comma:
+            throw UnexpectedToken(TokenType::RFormatInstruction, t.get_type());
         }
         if (stop) break;
     }
@@ -152,7 +130,7 @@ int main()
     using namespace op;
     assert(RFormat(RFormatInstruction::Add, Reg::t1, Reg::t2, Reg::t0, 0).encode() == 0x12a4020);
     assert(IFormat(IFormatInstruction::Addi ,Reg::s1, Reg::t0, -50).encode() == 0x2228ffce);
-    const char* path = "main.asm";
+    const char* path = "./dev/main.asm";
     auto contents = read_file_to_string(path);
 
     auto view = string_view(contents);

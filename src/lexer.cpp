@@ -179,8 +179,9 @@ const char* get_string(TokenType t)
     case TokenType::Comma: return "comma";
     case TokenType::LabelDefinition: return "label definition";
     case TokenType::Register: return "register";
-    case TokenType::RFormatInstruction: return "r format instruction";
-    case TokenType::IFormatInstruction: return "i format instruction";
+    case TokenType::RFormatInstruction:
+    case TokenType::JFormatInstruction:
+    case TokenType::IFormatInstruction: return "instruction";
     }
     assert(false && "UNREACHABLE");
 }
@@ -188,13 +189,15 @@ const char* get_string(TokenType t)
 Token::Token(TokenType type, SourceLocation loc, string text) : type(type), loc(loc), text_(std::move(text)),
                                                                 register_(reg::Reg::zero),
                                                                 r_format_(RFormatInstruction::COUNT),
-                                                                i_format_(IFormatInstruction::COUNT)
+                                                                i_format_(IFormatInstruction::COUNT),
+                                                                j_format_(JFormatInstruction::COUNT)
 {
 }
 
 Token::Token(SourceLocation loc, reg::Reg reg) : type(TokenType::Register), loc(loc), text_(""), register_(reg),
                                                  r_format_(RFormatInstruction::COUNT),
-                                                 i_format_(IFormatInstruction::COUNT)
+                                                 i_format_(IFormatInstruction::COUNT),
+                                                 j_format_(JFormatInstruction::COUNT)
 {
 }
 
@@ -202,7 +205,9 @@ Token::Token(SourceLocation loc, RFormatInstruction instruction) : type(TokenTyp
                                                                    text_(""),
                                                                    register_(reg::Reg::zero),
                                                                    r_format_(instruction),
-                                                                   i_format_(IFormatInstruction::COUNT)
+                                                                   i_format_(IFormatInstruction::COUNT),
+                                                                   j_format_(JFormatInstruction::COUNT)
+
 {
 }
 
@@ -210,7 +215,17 @@ Token::Token(SourceLocation loc, IFormatInstruction instruction) : type(TokenTyp
                                                                    text_(""),
                                                                    register_(reg::Reg::zero),
                                                                    r_format_(RFormatInstruction::COUNT),
-                                                                   i_format_(instruction)
+                                                                   i_format_(instruction),
+                                                                   j_format_(JFormatInstruction::COUNT)
+{
+}
+
+Token::Token(SourceLocation loc, JFormatInstruction instruction) : type(TokenType::RFormatInstruction), loc(loc),
+                                                                   text_(""),
+                                                                   register_(reg::Reg::zero),
+                                                                   r_format_(RFormatInstruction::COUNT),
+                                                                   i_format_(IFormatInstruction::COUNT),
+                                                                   j_format_(instruction)
 {
 }
 
@@ -223,6 +238,12 @@ Token Token::r_format(SourceLocation loc, RFormatInstruction instruction)
 {
     return {loc, instruction};
 }
+
+Token Token::j_format(SourceLocation loc, JFormatInstruction instruction)
+{
+    return {loc, instruction};
+}
+
 
 Token Token::i_format(SourceLocation loc, IFormatInstruction instruction)
 {
@@ -283,6 +304,15 @@ IFormatInstruction Token::get_i_format() const
         throw std::out_of_range("lexer: token is not a i format instruction");
     }
     return this->i_format_;
+}
+
+JFormatInstruction Token::get_j_format() const
+{
+    if (type != TokenType::JFormatInstruction)
+    {
+        throw std::out_of_range("lexer: token is not a i format instruction");
+    }
+    return this->j_format_;
 }
 
 

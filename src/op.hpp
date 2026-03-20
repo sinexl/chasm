@@ -25,6 +25,16 @@ enum class IFormatInstruction: int {
     COUNT,
 };
 
+enum class JFormatInstruction: int {
+    J,
+    COUNT
+};
+
+///////////////////////////////////////////////////////////////////////////////
+//                                  STRINGS                                  //
+///////////////////////////////////////////////////////////////////////////////
+
+
 using namespace reg;
 static const std::unordered_map<string_view, RFormatInstruction> r_format_strings {
     {
@@ -39,11 +49,20 @@ static const std::unordered_map<string_view, RFormatInstruction> r_format_string
 };
 static_assert(7 == static_cast<int>(RFormatInstruction::COUNT));
 
-static  const std::unordered_map<string_view, IFormatInstruction> i_format_strings {
+static const std::unordered_map<string_view, IFormatInstruction> i_format_strings {
         {"addi", IFormatInstruction::Addi},
         {"addiu", IFormatInstruction::Addiu},
 };
 static_assert(2 == static_cast<int>(IFormatInstruction::COUNT));
+
+static const std::unordered_map<string_view, JFormatInstruction> j_format_strings {
+        {"j", JFormatInstruction::J},
+};
+static_assert(1 == static_cast<int>(JFormatInstruction::COUNT));
+
+///////////////////////////////////////////////////////////////////////////////
+//                                  ENCODING                                 //
+///////////////////////////////////////////////////////////////////////////////
 
 //                                                    opcode, funct
 static const std::unordered_map<RFormatInstruction, pair<u8, u8>> r_format_codes {
@@ -63,6 +82,11 @@ static const std::unordered_map<IFormatInstruction, u8> i_format_codes {
     {IFormatInstruction::Addiu, 0b001001 },
 };
 static_assert(2 == static_cast<int>(IFormatInstruction::COUNT));
+
+static const std::unordered_map<JFormatInstruction, u8> J_format_codes {
+    {JFormatInstruction::J,  0000010 },
+};
+static_assert(1 == static_cast<int>(JFormatInstruction::COUNT));
 
 }
 #endif //CHASM_OP_HPP

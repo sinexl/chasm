@@ -22,6 +22,7 @@ enum class TokenType: int
     Register,
     RFormatInstruction,
     IFormatInstruction,
+    JFormatInstruction,
 };
 
 
@@ -40,16 +41,19 @@ class Token
     Reg register_;
     RFormatInstruction r_format_;
     IFormatInstruction i_format_;
+    JFormatInstruction j_format_;
 
     Token(TokenType type, SourceLocation loc, string text);
     Token(SourceLocation loc, Reg reg);
     Token(SourceLocation loc, RFormatInstruction r_format);
     Token(SourceLocation loc, IFormatInstruction i_format);
+    Token(SourceLocation loc, JFormatInstruction j_format);
 
 public:
     static Token eof(SourceLocation loc);
     static Token r_format(SourceLocation loc, RFormatInstruction instruction);
     static Token i_format(SourceLocation loc, IFormatInstruction instruction);
+    static Token j_format(SourceLocation loc, JFormatInstruction instruction);
     static Token label_definition(SourceLocation loc, std::string name);
     static Token identifier(SourceLocation loc, std::string text);
     static Token comma(SourceLocation loc);
@@ -60,6 +64,7 @@ public:
     TokenType get_type() const;
     RFormatInstruction get_r_format() const;
     IFormatInstruction get_i_format() const;
+    JFormatInstruction get_j_format() const;
     SourceLocation get_source_location() const;
 
     bool is_eof() const;
