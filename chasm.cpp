@@ -1,5 +1,6 @@
 #include <cassert>
 #include <fstream>
+#include <bitset>
 
 #include <iostream>
 #include <memory>
@@ -112,7 +113,7 @@ void parse_r_format(Lexer& lexer, Assembler& assembler, RFormatInstruction r_for
     assembler.r_format(r_format, dest.get_reg(), a.get_reg(), b.get_reg());
 }
 
-void parse_function(Lexer& lexer, Assembler& assembler)
+void parse_program(Lexer& lexer, Assembler& assembler)
 {
     bool stop = false;
     do
@@ -129,7 +130,7 @@ void parse_function(Lexer& lexer, Assembler& assembler)
         case TokenType::Identifier:
         case TokenType::Comma:
         case TokenType::LabelDefinition:
-            break;
+            assert(false && "NOT IMPLEMENTED");
 
         case TokenType::RFormatInstruction:
             {
@@ -159,7 +160,7 @@ int main()
     auto assembler = Assembler{};
     try
     {
-        parse_function(lexer, assembler);
+        parse_program(lexer, assembler);
     }
     catch (ParserException& e)
     {
@@ -170,7 +171,7 @@ int main()
     assembler.assemble(result);
     assert(result.size() % 4 == 0);
     cout << "Decoding each word:" << endl;
-    for (size_t i = 0; i < result.size(); i+=4)
+    for (size_t i = 0; i < result.size(); i += 4)
     {
         u32 b0 = result[i],
             b1 = result[i + 1],
@@ -182,7 +183,7 @@ int main()
         inst |= b1 << 16;
         inst |= b2 << 8;
         inst |= b3;
-        cout << std::hex << "0x" << inst << std::dec << endl;
+        cout << std::hex << "0x" << inst << std::dec << " (0b" << std::bitset<32>(inst) << ")" << endl;
     }
     {
         std::ofstream file{"./dev/output.bin", std::ios::binary};
