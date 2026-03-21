@@ -1,12 +1,25 @@
 #include "lexer.hpp"
 
+#include <array>
 #include <cassert>
+#include <charconv>
+#include <variant>
 #include <iostream>
 #include <ostream>
 #include <stdexcept>
 
 #include "op.hpp"
 #include "util.hpp"
+
+std::ostream& operator<<(std::ostream& os, const Integer& obj)
+{
+    if (holds_alternative<u64>(obj))
+        os << std::get<u64>(obj);
+    else if (holds_alternative<i64>(obj))
+        os << std::get<i64>(obj);
+
+    return os;
+}
 
 Lexer::State::State() : current(0), line_start(0), line_number(1)
 {
@@ -51,15 +64,15 @@ Token Lexer::next_token()
             return Token::label_definition(token_start_loc(), id);
         default:
             state = save;
-            auto r_instruction = op::r_format_strings.find(id_view);
-            auto i_instruction = op::i_format_strings.find(id_view);
-            if (r_instruction != op::r_format_strings.end())
+            auto r_instruction = r_format_strings.find(id_view);
+            auto i_instruction = i_format_strings.find(id_view);
+            if (r_instruction != r_format_strings.end())
             {
                 // Assert mutual exclusivity between hash sets.
                 assert(i_instruction == op::i_format_strings.end());
                 return Token::r_format(token_start_loc(), r_instruction->second);
             }
-            if (i_instruction != op::i_format_strings.end())
+            if (i_instruction != i_format_strings.end())
             {
                 // Assert mutual exclusivity between hash sets.
                 assert(r_instruction == op::r_format_strings.end());
@@ -68,6 +81,38 @@ Token Lexer::next_token()
 
             return Token::identifier(token_start_loc(), id);
         }
+    }
+
+    if (isdigit(current) || current == '-')
+    {
+        bool is_signed = false;
+        if (current == '-')
+        {
+            is_signed = true;
+            consume_char();
+        }
+        while (!is_eof() && isdigit(peek())) consume_char();
+        from_chars_result result;
+        Integer value;
+        if (is_signed)
+        {
+            i64 res;
+            result = std::from_chars(src.data() + token_start.current, src.data() + state.current, res);
+            value = res;
+        }
+        else
+        {
+            u64 res;
+            result = std::from_chars(src.data() + token_start.current, src.data() + state.current, res);
+            value = res;
+        }
+
+        if (result.ec != std::errc())
+        {
+            cerr << "Could not parse integer" << endl;
+            exit(-1); // TODO: Proper errors from lexer.
+        }
+        return Token::integer(token_start_loc(), value);
     }
 
     switch (current)
@@ -84,8 +129,8 @@ Token Lexer::next_token()
 
         if (!label_definition)
         {
-            auto reg_type = reg::strings.find(word_view);
-            if (reg_type == reg::strings.end())
+            auto reg_type = strings.find(word_view);
+            if (reg_type == strings.end())
             {
                 return Token::identifier(token_start_loc(), string(word_view));
             }
@@ -182,72 +227,36 @@ const char* get_string(TokenType t)
     case TokenType::RFormatInstruction:
     case TokenType::JFormatInstruction:
     case TokenType::IFormatInstruction: return "instruction";
+    case TokenType::Integer: return "integer";
     }
     assert(false && "UNREACHABLE");
 }
 
-Token::Token(TokenType type, SourceLocation loc, string text) : type(type), loc(loc), text_(std::move(text)),
-                                                                register_(reg::Reg::zero),
-                                                                r_format_(RFormatInstruction::COUNT),
-                                                                i_format_(IFormatInstruction::COUNT),
-                                                                j_format_(JFormatInstruction::COUNT)
-{
-}
+using Value = Token::Value;
 
-Token::Token(SourceLocation loc, reg::Reg reg) : type(TokenType::Register), loc(loc), text_(""), register_(reg),
-                                                 r_format_(RFormatInstruction::COUNT),
-                                                 i_format_(IFormatInstruction::COUNT),
-                                                 j_format_(JFormatInstruction::COUNT)
-{
-}
-
-Token::Token(SourceLocation loc, RFormatInstruction instruction) : type(TokenType::RFormatInstruction), loc(loc),
-                                                                   text_(""),
-                                                                   register_(reg::Reg::zero),
-                                                                   r_format_(instruction),
-                                                                   i_format_(IFormatInstruction::COUNT),
-                                                                   j_format_(JFormatInstruction::COUNT)
-
-{
-}
-
-Token::Token(SourceLocation loc, IFormatInstruction instruction) : type(TokenType::RFormatInstruction), loc(loc),
-                                                                   text_(""),
-                                                                   register_(reg::Reg::zero),
-                                                                   r_format_(RFormatInstruction::COUNT),
-                                                                   i_format_(instruction),
-                                                                   j_format_(JFormatInstruction::COUNT)
-{
-}
-
-Token::Token(SourceLocation loc, JFormatInstruction instruction) : type(TokenType::RFormatInstruction), loc(loc),
-                                                                   text_(""),
-                                                                   register_(reg::Reg::zero),
-                                                                   r_format_(RFormatInstruction::COUNT),
-                                                                   i_format_(IFormatInstruction::COUNT),
-                                                                   j_format_(instruction)
+Token::Token(TokenType type, SourceLocation loc, Value value)
+    : type(type), loc(loc), value(std::move(value))
 {
 }
 
 Token Token::eof(SourceLocation loc)
 {
-    return Token(TokenType::Eof, loc, "");
+    return Token(TokenType::Eof, loc, std::monostate{});
 }
 
 Token Token::r_format(SourceLocation loc, RFormatInstruction instruction)
 {
-    return {loc, instruction};
+    return Token(TokenType::RFormatInstruction, loc, instruction);
 }
 
 Token Token::j_format(SourceLocation loc, JFormatInstruction instruction)
 {
-    return {loc, instruction};
+    return Token(TokenType::JFormatInstruction, loc, instruction);
 }
-
 
 Token Token::i_format(SourceLocation loc, IFormatInstruction instruction)
 {
-    return {loc, instruction};
+    return Token(TokenType::IFormatInstruction, loc, instruction);
 }
 
 Token Token::label_definition(SourceLocation loc, std::string name)
@@ -262,71 +271,80 @@ Token Token::identifier(SourceLocation loc, std::string text)
 
 Token Token::comma(SourceLocation loc)
 {
-    return Token(TokenType::Comma, loc, "");
+    return Token(TokenType::Comma, loc, std::monostate{});
 }
 
 Token Token::reg(SourceLocation loc, Reg reg)
 {
-    return Token(loc, reg);
+    return Token(TokenType::Register, loc, reg);
 }
+
+Token Token::integer(SourceLocation loc, Integer value)
+{
+    return Token(TokenType::Integer, loc, value);
+}
+
+// -------------------- Getters --------------------
 
 std::string Token::get_text() const
 {
     if (type != TokenType::Identifier && type != TokenType::LabelDefinition)
-    {
         throw std::out_of_range("lexer: token has no text");
-    }
-    return this->text_;
+
+    return std::get<std::string>(value);
 }
 
 Reg Token::get_reg() const
 {
     if (type != TokenType::Register)
-    {
         throw std::out_of_range("lexer: token is not a register");
-    }
-    return this->register_;
+
+    return std::get<Reg>(value);
 }
 
 RFormatInstruction Token::get_r_format() const
 {
     if (type != TokenType::RFormatInstruction)
-    {
         throw std::out_of_range("lexer: token is not a r format instruction");
-    }
-    return this->r_format_;
+
+    return std::get<RFormatInstruction>(value);
 }
 
 IFormatInstruction Token::get_i_format() const
 {
     if (type != TokenType::IFormatInstruction)
-    {
         throw std::out_of_range("lexer: token is not a i format instruction");
-    }
-    return this->i_format_;
+
+    return std::get<IFormatInstruction>(value);
 }
 
 JFormatInstruction Token::get_j_format() const
 {
     if (type != TokenType::JFormatInstruction)
-    {
-        throw std::out_of_range("lexer: token is not a i format instruction");
-    }
-    return this->j_format_;
+        throw std::out_of_range("lexer: token is not a j format instruction");
+
+    return std::get<JFormatInstruction>(value);
 }
 
+Integer Token::get_integer() const
+{
+    if (type != TokenType::Integer)
+        throw std::out_of_range("lexer: token is not an integer");
+
+    return std::get<Integer>(value);
+}
+
+// -------------------- Meta --------------------
 
 TokenType Token::get_type() const
 {
     return type;
 }
 
-
 SourceLocation Token::get_source_location() const
 {
     return loc;
 }
-
 
 bool Token::is_eof() const
 {
@@ -364,6 +382,19 @@ const char* get_string(IFormatInstruction instruction)
     assert(false && "UNREACHABLE");
 }
 
+const char* get_string(JFormatInstruction instruction)
+{
+    switch (instruction)
+    {
+    case JFormatInstruction::J:
+        return "j";
+    case JFormatInstruction::COUNT:
+        throw std::out_of_range("lexer: invalid i_format instruction token");
+    }
+
+    assert(false && "UNREACHABLE");
+}
+
 
 std::ostream& operator<<(std::ostream& os, const Token& obj)
 {
@@ -384,6 +415,10 @@ std::ostream& operator<<(std::ostream& os, const Token& obj)
     else if (type == TokenType::IFormatInstruction)
     {
         os << " (" << get_string(obj.get_i_format()) << ")";
+    }
+    else if (type == TokenType::JFormatInstruction)
+    {
+        os << " (" << get_string(obj.get_j_format()) << ")";
     }
     return os;
 }

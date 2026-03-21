@@ -76,7 +76,7 @@ class IFormat : public Format
     IFormatInstruction op; // [6] op
     u8 rs;                 // [5] source
     u8 rt;                 // [5] destination/target
-    u16 imm;               // [16] immediate value
+    u8 imm[2];             // [16] immediate value
 
 public:
     u32 encode() const override
@@ -88,13 +88,16 @@ public:
             opcode << 26 |
                 rs << 21 |
                 rt << 16 |
-                imm;
+                u16_from_be(imm);
     }
 
-    IFormat(IFormatInstruction op, Reg rs, Reg rt, u16 imm) : op(op), rs(reg_u8(rs)), rt(reg_u8(rt)), imm(imm)
+    IFormat(IFormatInstruction op, Reg rs, Reg rt, u8 imm[2]) : op(op), rs(reg_u8(rs)), rt(reg_u8(rt))
     {
-        assert(imm < UINT16_MAX && "IFormat: Immediate value out of range");
+        this->imm[0] = imm[0];
+        this->imm[1] = imm[1];
+        assert(u16_from_be(imm) < UINT16_MAX && "IFormat: Immediate value out of range");
     }
+
 };
 
 

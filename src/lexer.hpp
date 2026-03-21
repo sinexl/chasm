@@ -1,6 +1,7 @@
 #ifndef CHASM_LEXER_HPP
 #define CHASM_LEXER_HPP
 #include <string_view>
+#include <variant>
 
 #include "op.hpp"
 #include "register.hpp"
@@ -19,35 +20,41 @@ enum class TokenType: int
     Comma,
     LabelDefinition,
 
+    Integer,
+
     Register,
     RFormatInstruction,
     IFormatInstruction,
     JFormatInstruction,
 };
 
-
-
 const char* get_string(TokenType t);
 const char* get_string(RFormatInstruction instruction);
 const char* get_string(IFormatInstruction instruction);
 
+using Integer = std::variant<i64, u64>;
+
+std::ostream& operator<<(std::ostream& os, const Integer& obj);
 
 class Token
 {
+public:
+    using Value = variant<
+        std::monostate,          // for tokens without payload (e.g. comma, eof)
+        std::string,
+        Integer,
+        Reg,
+        RFormatInstruction,
+        IFormatInstruction,
+        JFormatInstruction
+    >;
+
+private:
     TokenType type;
     SourceLocation loc;
+    Value value;
 
-    std::string text_;
-    Reg register_;
-    RFormatInstruction r_format_;
-    IFormatInstruction i_format_;
-    JFormatInstruction j_format_;
-
-    Token(TokenType type, SourceLocation loc, string text);
-    Token(SourceLocation loc, Reg reg);
-    Token(SourceLocation loc, RFormatInstruction r_format);
-    Token(SourceLocation loc, IFormatInstruction i_format);
-    Token(SourceLocation loc, JFormatInstruction j_format);
+    Token(TokenType type, SourceLocation loc, Value value);
 
 public:
     static Token eof(SourceLocation loc);
@@ -58,6 +65,7 @@ public:
     static Token identifier(SourceLocation loc, std::string text);
     static Token comma(SourceLocation loc);
     static Token reg(SourceLocation loc, Reg reg);
+    static Token integer(SourceLocation loc, Integer value);
 
     std::string get_text() const;
     Reg get_reg() const;
@@ -66,6 +74,7 @@ public:
     IFormatInstruction get_i_format() const;
     JFormatInstruction get_j_format() const;
     SourceLocation get_source_location() const;
+    Integer get_integer() const;
 
     bool is_eof() const;
 };

@@ -1,4 +1,5 @@
 #include "util.hpp"
+
 #include <fstream>
 
 std::string read_file_to_string(const char* filename)
@@ -15,3 +16,4 @@ std::ostream& operator<<(std::ostream& os, const SourceLocation& loc)
 {
     return os << loc.file << ":" << loc.line << ":" << loc.offset;
 }
+

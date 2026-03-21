@@ -1,6 +1,9 @@
+#include <array>
 #include <cassert>
 #include <fstream>
 #include <bitset>
+#include <iomanip>
+#include <variant>
 
 #include <iostream>
 #include <memory>
@@ -29,6 +32,26 @@ public:
         ir.push_back(make_unique<RFormat>(type, a, b, dst, 0));
     }
 
+    // Please notice that on ISA level functions
+    // "i_format_u16" and "i_format_i16" don't differ (they generate the same code).
+    // Both just take the big endian bytes from 'value' parameter.
+    // Both functions are provided explicitly in order to make library interface easier to work from C.
+    void i_format_u16(IFormatInstruction type, Reg dst, Reg src, u16 value)
+    {
+        u8 bytes[2];
+        u16_to_be(bytes, value);
+        ir.push_back(make_unique<IFormat>(type, src, dst, bytes));
+    }
+
+    void i_format_i16(IFormatInstruction type, Reg dst, Reg src, i16 value)
+    {
+        u8 bytes[2];
+        i16_to_be(bytes, value);
+        ir.push_back(make_unique<IFormat>(type, src, dst, bytes));
+    }
+
+
+    // Jump to address found in register.
     void jr(Reg dst)
     {
         ir.push_back(make_unique<RFormat>(RFormatInstruction::Jr, dst, Reg::zero, Reg::zero, 0));
@@ -41,18 +64,15 @@ public:
         {
             u32 inst = item->encode();
             // Big endian encoding
-            u8 b0 = (inst >> 24) & 0xFF; // MSB
-            u8 b1 = (inst >> 16) & 0xFF;
-            u8 b2 = (inst >> 8) & 0xFF;
-            u8 b3 = inst & 0xFF; // LSB
-            data.push_back(b0);
-            data.push_back(b1);
-            data.push_back(b2);
-            data.push_back(b3);
+            u8 bytes[4];
+            u32_to_be(bytes, inst);
+            data.push_back(bytes[0]);
+            data.push_back(bytes[1]);
+            data.push_back(bytes[2]);
+            data.push_back(bytes[3]);
         }
     }
 };
-
 
 
 Token expect(Lexer& lexer, TokenType expected)
@@ -86,6 +106,30 @@ void parse_r_format(Lexer& lexer, Assembler& assembler, RFormatInstruction r_for
     assembler.r_format(r_format, dest.get_reg(), a.get_reg(), b.get_reg());
 }
 
+void parse_i_format(Lexer& lexer, Assembler& assembler, IFormatInstruction i_format)
+{
+    Reg dest = expect(lexer, TokenType::Register).get_reg();
+    expect(lexer, TokenType::Comma);
+    Reg source = expect(lexer, TokenType::Register).get_reg();
+    expect(lexer, TokenType::Comma);
+    Integer integer = expect(lexer, TokenType::Integer).get_integer();
+    if (std::holds_alternative<i64>(integer))
+    {
+        i64 val = std::get<i64>(integer);
+        if (!(INT16_MIN <= val && val <= INT16_MAX))
+            throw StaticIntegerOverflow(integer);
+        assembler.i_format_i16(i_format, dest, source, static_cast<i16>(val));
+    }
+    else if (std::holds_alternative<u64>(integer))
+    {
+        u64 val = std::get<u64>(integer);
+        if (val > UINT16_MAX)
+            throw StaticIntegerOverflow(integer);
+
+        assembler.i_format_u16(i_format, dest, source, static_cast<u16>(val));
+    }
+}
+
 void parse_program(Lexer& lexer, Assembler& assembler)
 {
     bool stop = false;
@@ -101,6 +145,7 @@ void parse_program(Lexer& lexer, Assembler& assembler)
             break;
         case TokenType::LabelDefinition:
             assert(false && "NOT IMPLEMENTED YET: LABELS");
+            break;
 
         case TokenType::RFormatInstruction:
             {
@@ -109,7 +154,11 @@ void parse_program(Lexer& lexer, Assembler& assembler)
                 break;
             }
         case TokenType::IFormatInstruction:
-            assert(false && "NOT IMPLEMENTED YET: I FORMAT INSTRUCTIONS");
+            {
+                auto instruction = t.get_i_format();
+                parse_i_format(lexer, assembler, instruction);
+                break;
+            }
 
         case TokenType::JFormatInstruction:
             assert(false && "NOT IMPLEMENTED YET: J FORMAT INSTRUCTIONS");
@@ -117,6 +166,7 @@ void parse_program(Lexer& lexer, Assembler& assembler)
         case TokenType::Register:
         case TokenType::Identifier:
         case TokenType::Comma:
+        case TokenType::Integer:
             throw UnexpectedToken(TokenType::RFormatInstruction, t.get_type());
         }
         if (stop) break;
@@ -129,7 +179,9 @@ int main()
 {
     using namespace op;
     assert(RFormat(RFormatInstruction::Add, Reg::t1, Reg::t2, Reg::t0, 0).encode() == 0x12a4020);
-    assert(IFormat(IFormatInstruction::Addi ,Reg::s1, Reg::t0, -50).encode() == 0x2228ffce);
+    u8 bytes[2];
+    i16_to_be(bytes, -50);
+    assert(IFormat(IFormatInstruction::Addi ,Reg::s1, Reg::t0, bytes).encode() == 0x2228ffce);
     const char* path = "./dev/main.asm";
     auto contents = read_file_to_string(path);
 
@@ -143,6 +195,7 @@ int main()
     catch (ParserException& e)
     {
         cerr << e.what() << endl;
+        exit(-1);
     }
 
     auto result = vector<u8>{};
@@ -151,17 +204,8 @@ int main()
     cout << "Decoding each word:" << endl;
     for (size_t i = 0; i < result.size(); i += 4)
     {
-        u32 b0 = result[i],
-            b1 = result[i + 1],
-            b2 = result[i + 2],
-            b3 = result[i + 3];
-
-        u32 inst = 0;
-        inst |= b0 << 24;
-        inst |= b1 << 16;
-        inst |= b2 << 8;
-        inst |= b3;
-        cout << std::hex << "0x" << inst << std::dec << " (0b" << std::bitset<32>(inst) << ")" << endl;
+        u32 inst = u32_from_be(result.data() + i);
+        cout << std::hex << "0x" << std::setfill('0') << std::setw(8) << inst << std::dec << " (0b" << std::bitset<32>(inst) << ")" << endl;
     }
     {
         std::ofstream file{"./dev/output.bin", std::ios::binary};

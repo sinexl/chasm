@@ -11,3 +11,21 @@ const char* UnexpectedToken::what() const noexcept
 {
     return msg_.c_str();
 }
+
+
+StaticIntegerOverflow::StaticIntegerOverflow(Integer value) : value_(value)
+{
+    ostringstream ss;
+    ss << "Integer value (" << value << ") is to big to fit into a single instruction";
+    msg_ = ss.str();
+}
+
+Integer StaticIntegerOverflow::value() const
+{
+    return value_;
+}
+
+const char* StaticIntegerOverflow::what() const noexcept
+{
+    return msg_.c_str();
+}

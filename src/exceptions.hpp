@@ -8,13 +8,13 @@
 enum class TokenType;
 using namespace std;
 
-class ParserException : std::exception
+class ParserException : public std::exception
 {
 public:
     const char* what() const noexcept override = 0;
 };
 
-class UnexpectedToken : ParserException
+class UnexpectedToken : public ParserException
 {
     string msg_;
 
@@ -26,6 +26,19 @@ public:
 
     const char* what() const noexcept override;;
 };
+
+class StaticIntegerOverflow : public ParserException
+{
+    string msg_;
+    Integer value_;
+
+public:
+    StaticIntegerOverflow(Integer value);
+
+    Integer value() const;
+    const char* what() const noexcept override;
+};
+
 
 
 #endif //CHASM_EXCEPTIONS_HPP
