@@ -1,0 +1,62 @@
+[
+  {
+    "file": "src/chasm.cpp",
+    "arguments": [
+      "g++",
+      "-ggdb",
+      "-Wall",
+      "-Wextra",
+      "-Wswitch-enum",
+      "src/chasm.cpp",
+      "-o",
+      "chasm"
+    ],
+    "directory": "/home/sinex/Programming/cpp/chasm",
+    "output": "chasm"
+  },
+  {
+    "file": "src/exceptions.cpp",
+    "arguments": [
+      "g++",
+      "-ggdb",
+      "-Wall",
+      "-Wextra",
+      "-Wswitch-enum",
+      "src/exceptions.cpp",
+      "-o",
+      "chasm"
+    ],
+    "directory": "/home/sinex/Programming/cpp/chasm",
+    "output": "chasm"
+  },
+  {
+    "file": "src/lexer.cpp",
+    "arguments": [
+      "g++",
+      "-ggdb",
+      "-Wall",
+      "-Wextra",
+      "-Wswitch-enum",
+      "src/lexer.cpp",
+      "-o",
+      "chasm"
+    ],
+    "directory": "/home/sinex/Programming/cpp/chasm",
+    "output": "chasm"
+  },
+  {
+    "file": "src/util.cpp",
+    "arguments": [
+      "g++",
+      "-ggdb",
+      "-Wall",
+      "-Wextra",
+      "-Wswitch-enum",
+      "src/util.cpp",
+      "-o",
+      "chasm"
+    ],
+    "directory": "/home/sinex/Programming/cpp/chasm",
+    "output": "chasm"
+  }
+]

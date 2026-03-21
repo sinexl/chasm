@@ -28,15 +28,11 @@ struct SourceLocation {
 
 std::ostream& operator<<(std::ostream& os, const SourceLocation& loc);
 
-
-
-
 ///////////////////////////////////////////////////////////////////////////////
 //                           BIG ENDIAN OPERATIONS                           //
 ///////////////////////////////////////////////////////////////////////////////
 
 
-// Writing operations
 
 #ifdef __cplusplus
 #define CAST(Type, k) (static_cast<Type>((k)))
@@ -51,6 +47,7 @@ std::ostream& operator<<(std::ostream& os, const SourceLocation& loc);
 #endif
 
 
+// Writing operations
 // TODO: conditionally use compiler builtins wherever it is applicable
 
 static inline void u16_to_be(u8 buffer[2], u16 value) {

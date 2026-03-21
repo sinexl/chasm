@@ -81,7 +81,7 @@ Token expect(Lexer& lexer, TokenType expected)
     auto got_type = token.get_type();
     if (got_type != expected)
     {
-        throw UnexpectedToken(expected, got_type);
+        throw UnexpectedToken(token.get_source_location(), expected, got_type);
     }
 
     return token;
@@ -112,19 +112,22 @@ void parse_i_format(Lexer& lexer, Assembler& assembler, IFormatInstruction i_for
     expect(lexer, TokenType::Comma);
     Reg source = expect(lexer, TokenType::Register).get_reg();
     expect(lexer, TokenType::Comma);
-    Integer integer = expect(lexer, TokenType::Integer).get_integer();
+    Token integer_tk = expect(lexer, TokenType::Integer);
+    Integer integer = integer_tk.get_integer();
     if (std::holds_alternative<i64>(integer))
     {
         i64 val = std::get<i64>(integer);
-        if (!(INT16_MIN <= val && val <= INT16_MAX))
-            throw StaticIntegerOverflow(integer);
+        if (val < INT16_MIN || val > INT16_MAX)
+        {
+            throw StaticIntegerOverflow(integer_tk.get_source_location(), integer);
+        }
         assembler.i_format_i16(i_format, dest, source, static_cast<i16>(val));
     }
     else if (std::holds_alternative<u64>(integer))
     {
         u64 val = std::get<u64>(integer);
         if (val > UINT16_MAX)
-            throw StaticIntegerOverflow(integer);
+            throw StaticIntegerOverflow(integer_tk.get_source_location(), integer);
 
         assembler.i_format_u16(i_format, dest, source, static_cast<u16>(val));
     }
@@ -167,7 +170,7 @@ void parse_program(Lexer& lexer, Assembler& assembler)
         case TokenType::Identifier:
         case TokenType::Comma:
         case TokenType::Integer:
-            throw UnexpectedToken(TokenType::RFormatInstruction, t.get_type());
+            throw UnexpectedToken(t.get_source_location(), TokenType::RFormatInstruction, t.get_type());
         }
         if (stop) break;
     }
@@ -194,7 +197,7 @@ int main()
     }
     catch (ParserException& e)
     {
-        cerr << e.what() << endl;
+        cerr << e << endl;
         exit(-1);
     }
 

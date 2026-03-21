@@ -1,23 +1,49 @@
 #include "exceptions.hpp"
 
-UnexpectedToken::UnexpectedToken(TokenType expected, TokenType actual): expected(expected), actual(actual)
+#include <cassert>
+#include <iostream>
+
+
+ParserException::ParserException(SourceLocation location): location(location)
 {
-    ostringstream ss;
-    ss << "error: unexpected token. Expected " << get_string(expected) << ", but got: " << get_string(actual);
-    msg_ = ss.str();
 }
 
-const char* UnexpectedToken::what() const noexcept
+const char* ParserException::what() const noexcept
 {
-    return msg_.c_str();
+    assert(false && "ERROR: ParserException::what() should never be used. Use Exception::write() instead.");
 }
 
-
-StaticIntegerOverflow::StaticIntegerOverflow(Integer value) : value_(value)
+void ParserException::write(std::ostream& os) const
 {
-    ostringstream ss;
-    ss << "Integer value (" << value << ") is to big to fit into a single instruction";
-    msg_ = ss.str();
+    os << location << ": ";
+    this->display(os);
+}
+
+std::ostream& operator<<(std::ostream& os, const ParserException& ex)
+{
+    ex.write(os);
+    return os;
+}
+
+SourceLocation ParserException::get_location() const
+{
+    return location;
+}
+
+UnexpectedToken::UnexpectedToken(SourceLocation location, TokenType expected, TokenType actual)
+    : ParserException(location), expected(expected), actual(actual)
+{
+}
+
+void UnexpectedToken::display(std::ostream& os) const noexcept
+{
+    os << "error: unexpected token. Expected " << get_string(expected)
+       << ", but got: " << get_string(actual);
+}
+
+StaticIntegerOverflow::StaticIntegerOverflow(SourceLocation location, Integer value)
+    : ParserException(location), value_(value)
+{
 }
 
 Integer StaticIntegerOverflow::value() const
@@ -25,7 +51,7 @@ Integer StaticIntegerOverflow::value() const
     return value_;
 }
 
-const char* StaticIntegerOverflow::what() const noexcept
+void StaticIntegerOverflow::display(std::ostream& os) const noexcept
 {
-    return msg_.c_str();
+    os << "Could not fit integer (" << value_ << ") into a single instruction";
 }

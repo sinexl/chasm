@@ -1,8 +1,7 @@
 #ifndef CHASM_EXCEPTIONS_HPP
 #define CHASM_EXCEPTIONS_HPP
 #include <exception>
-#include <sstream>
-#include <string>
+#include "util.hpp"
 
 #include "lexer.hpp"
 enum class TokenType;
@@ -10,35 +9,46 @@ using namespace std;
 
 class ParserException : public std::exception
 {
+    SourceLocation location;
 public:
-    const char* what() const noexcept override = 0;
+    ParserException(SourceLocation location);
+
+    // Should not be used. Use write() (or operator <<) instead
+    const char* what() const noexcept override;;
+
+    void write(std::ostream& os) const;
+
+    SourceLocation get_location() const;
+
+protected:
+    virtual void display(std::ostream& os) const noexcept = 0;
 };
+
+std::ostream& operator<<(std::ostream& os, const ParserException& ex);
 
 class UnexpectedToken : public ParserException
 {
-    string msg_;
-
 public:
     TokenType expected;
     TokenType actual;
 
-    UnexpectedToken(TokenType expected, TokenType actual);
+    UnexpectedToken(SourceLocation location, TokenType expected, TokenType actual);
 
-    const char* what() const noexcept override;;
+protected:
+    void display(std::ostream& os) const noexcept override;
 };
 
 class StaticIntegerOverflow : public ParserException
 {
-    string msg_;
     Integer value_;
 
 public:
-    StaticIntegerOverflow(Integer value);
+    StaticIntegerOverflow(SourceLocation location, Integer value);
 
     Integer value() const;
-    const char* what() const noexcept override;
+
+protected:
+    void display(std::ostream& os) const noexcept override;
 };
-
-
 
 #endif //CHASM_EXCEPTIONS_HPP
