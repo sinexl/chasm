@@ -6,6 +6,7 @@
 #include <variant>
 
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <ostream>
 #include <stack>
@@ -27,6 +28,7 @@ class Assembler
 {
     vector<Format*> ir;
     std::unordered_map<string, u32> labels;
+    bool no_reorder;
 
     // holds the pair of instruction and it's address
     stack<std::pair<IFormat*, u32>> i_formats_to_backpatch;
@@ -34,7 +36,7 @@ class Assembler
     void push_instruction(Format* format)
     {
         ir.push_back(format);
-        if (format->is_control_flow())
+        if (format->is_control_flow() && !no_reorder)
         {
             // FROM MIPS REFERENCE (see README.md -> References)
             /*
@@ -49,12 +51,27 @@ class Assembler
         }
     }
 
+    // both pc and target_pc are instruction addresses (words), not byte addresses.
+    // This function returns whether operation succeeded, or jump is to far away
+    [[nodiscard]] static bool calculate_near_jump_pc_relative(u32 pc, u32 target_pc, u8 result[2])
+    {
+        // MIPS IMMEDIATE ADDRESSING: Pc-relative.
+        // target_pc = (PC_byte + 4) + offset * 4
+        // The factor of 4 (or << 2) is chosen because each instruction has length of 4.
+        // Since we address instructions by MIPS words (4 bytes), the factor of 4 will be omitted.
+        // thus, target_pc = (PC_word + 1) + offset =>  offset = target_pc - (PC_word + 1)
+
+        // Note that static_cast doesn't change internal representation (2's complement) of numbers,
+        // we only do the cast for convenience of checking boundaries.
+        i32 offset = static_cast<i32>(target_pc) - (static_cast<i32>(pc) + 1);
+        if (offset < std::numeric_limits<i16>::min() || offset > std::numeric_limits<i16>::max()) return false;
+        i16_to_be(result, offset);
+        return true;
+
+    }
+
     void backpatch_all()
     {
-        for (const auto& pair : this->labels)
-        {
-            cout << pair.first << " " << pair.second << endl;
-        }
         while (!i_formats_to_backpatch.empty())
         {
             auto instruction_pair = i_formats_to_backpatch.top();
@@ -65,10 +82,10 @@ class Assembler
 
             auto target = labels.find(string{instruction->get_label()});
             if (target == labels.end())
-                assert(false && "TODO: Proper error handling");
+                assert(false && "TODO: Proper error handling"); // TODO: Proper error handling
 
             u8 bytes[2];
-            u16_to_be(bytes, target->second - (pc + 1));
+            calculate_near_jump_pc_relative(pc, target->second, bytes);
             instruction->resolve(bytes);
         }
     }
@@ -78,9 +95,10 @@ class Assembler
     Assembler& operator=(const Assembler& other) = delete;
     Assembler& operator=(Assembler&& other) noexcept = delete;
 
-
 public:
-    Assembler() = default;
+    Assembler(bool no_reorder = false) : no_reorder(no_reorder)
+    {
+    }
 
     void r_format(RFormatInstruction type, Reg dst, Reg a, Reg b)
     {
@@ -107,24 +125,22 @@ public:
 
     void i_format_label(IFormatInstruction type, Reg dst, Reg src, string_view label)
     {
-        i32 pc = ir.size();
+        u32 pc = ir.size();
 
         auto addr_pointer = labels.find(string{label});
-        if (addr_pointer != labels.end())
-        {
-            i32 target = addr_pointer->second;
-            i16 offset = target - (pc + 1);
-
-            u8 final_address[2];
-            i16_to_be(final_address, offset);
-            push_instruction(new IFormat(type, src, dst, final_address));
-        }
-        else
+        // Label was not defined yet, add the instruction to backpatch list.
+        if (addr_pointer == labels.end())
         {
             auto result = new IFormat(type, src, dst, string{label});
             i_formats_to_backpatch.push(make_pair(result, pc));
             push_instruction(result);
+            return;
         }
+
+        u8 final_address[2];
+        u32 target = addr_pointer->second;
+        calculate_near_jump_pc_relative(pc, target, final_address);
+        push_instruction(new IFormat(type, src, dst, final_address));
     }
 
 
@@ -209,33 +225,34 @@ void parse_i_format(Lexer& lexer, Assembler& assembler, IFormatInstruction i_for
 
     Token value = lexer.next_token();
 
+    // TODO: Not all i_format instructions should be able to accept a label,
     if (value.get_type() == TokenType::Integer)
     {
         Integer integer = value.get_integer();
         if (std::holds_alternative<i64>(integer))
         {
             i64 val = std::get<i64>(integer);
-            if (val < INT16_MIN || val > INT16_MAX)
+            if (val < std::numeric_limits<i16>::min() || val > std::numeric_limits<i16>::max())
                 throw StaticIntegerOverflow(value.get_source_location(), integer);
             assembler.i_format_i16(i_format, dest, source, static_cast<i16>(val));
         }
         else if (std::holds_alternative<u64>(integer))
         {
             u64 val = std::get<u64>(integer);
-            if (val > UINT16_MAX)
+            if (val > std::numeric_limits<u16>::max())
                 throw StaticIntegerOverflow(value.get_source_location(), integer);
 
             assembler.i_format_u16(i_format, dest, source, static_cast<u16>(val));
         }
+        return;
     }
-    else if (value.get_type() == TokenType::Identifier)
+    if (value.get_type() == TokenType::Identifier)
     {
         assembler.i_format_label(i_format, dest, source, value.get_text());
+        return;
     }
-    else
-    {
-        assert(false && "UNEXPECTED TOKEN."); // TODO: Proper error handling
-    }
+
+    throw UnexpectedToken(value.get_source_location(), {TokenType::Identifier, TokenType::Integer}, TokenType::Comma);
 }
 
 void parse_program(Lexer& lexer, Assembler& assembler)
@@ -318,7 +335,7 @@ int main()
     {
         u32 inst = u32_from_be(result.data() + i);
         cout << std::hex << "0x" << std::setfill('0') << std::setw(8) << inst << std::dec << " (0b" << std::bitset<
-            32>(inst) << ") " << inst  << endl;
+            32>(inst) << ") " << inst << endl;
     }
     {
         std::ofstream file{"./dev/output.bin", std::ios::binary};

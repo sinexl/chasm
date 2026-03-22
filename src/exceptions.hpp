@@ -1,11 +1,11 @@
 #ifndef CHASM_EXCEPTIONS_HPP
 #define CHASM_EXCEPTIONS_HPP
 #include <exception>
+#include <vector>
 #include "util.hpp"
 
 #include "lexer.hpp"
 enum class TokenType;
-using namespace std;
 
 class ParserException : public std::exception
 {
@@ -29,10 +29,11 @@ std::ostream& operator<<(std::ostream& os, const ParserException& ex);
 class UnexpectedToken : public ParserException
 {
 public:
-    TokenType expected;
+    std::vector<TokenType> expected;
     TokenType actual;
 
     UnexpectedToken(SourceLocation location, TokenType expected, TokenType actual);
+    UnexpectedToken(SourceLocation location, vector<TokenType> expected, TokenType actual);
 
 protected:
     void display(std::ostream& os) const noexcept override;

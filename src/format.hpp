@@ -98,7 +98,7 @@ public:
         auto code = i_format_codes.find(op);
         assert(code != i_format_codes.end());
         auto opcode = code->second;
-        assert(holds_alternative<u16>(imm) && "ERROR: Instruction is not resolved to be encoded"); // TODO: Proper error handling
+        assert(holds_alternative<u16>(imm) && "ASSEMBLER BUG: Instruction is not resolved to be encoded");
         u16 immediate = std::get<u16>(imm);
         return
             opcode << 26 |
@@ -122,20 +122,14 @@ public:
 
     void resolve(u8 bytes[2])
     {
-        if (!holds_alternative<string>(imm))
-        {
-            assert(false && "Instruction is already resolved"); // TODO: Proper error handling
-        }
+        assert(holds_alternative<string>(imm) && "Instruction is already resolved");
         u16 result = u16_from_be(bytes);
         imm = result;
 
     }
     string get_label() const
     {
-        if (!holds_alternative<string>(imm))
-        {
-            assert(false && "Instruction is already resolved");
-        }
+        assert(holds_alternative<string>(imm) && "Instruction is already resolved and thus has no label");
         return std::get<string>(imm);
     }
 

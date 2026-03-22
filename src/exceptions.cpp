@@ -2,9 +2,10 @@
 
 #include <cassert>
 #include <iostream>
+#include <vector>
 
 
-ParserException::ParserException(SourceLocation location): location(location)
+ParserException::ParserException(SourceLocation location) : location(location)
 {
 }
 
@@ -31,14 +32,27 @@ SourceLocation ParserException::get_location() const
 }
 
 UnexpectedToken::UnexpectedToken(SourceLocation location, TokenType expected, TokenType actual)
-    : ParserException(location), expected(expected), actual(actual)
+    : ParserException(location), expected(vector{expected}), actual(actual)
+{
+}
+
+
+UnexpectedToken::UnexpectedToken(SourceLocation location, vector<TokenType> expected, TokenType actual) :
+    ParserException(location), expected(std::move(expected)), actual(actual)
 {
 }
 
 void UnexpectedToken::display(std::ostream& os) const noexcept
 {
-    os << "error: unexpected token. Expected " << get_string(expected)
-       << ", but got: " << get_string(actual);
+    os << "error: unexpected token. Expected ";
+    for (size_t i = 0; i < this->expected.size(); ++i)
+    {
+        os << get_string(this->expected[i]);
+        if (i != this->expected.size() - 1)
+            os << ", ";
+    }
+
+    os << ", but got: " << get_string(actual);
 }
 
 StaticIntegerOverflow::StaticIntegerOverflow(SourceLocation location, Integer value)
