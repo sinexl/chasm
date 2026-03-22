@@ -1,7 +1,15 @@
-    addi $t0, $t0, -500
-    add $t0, $t1, $t2
-    sub $t3, $t4, $t5
-    and $t6, $t7, $t0
-    or  $t1, $t2, $t3
-    jr  $ra
+.set noreorder
+main:
+    addi $s0, $zero, 0
+    addi $s1, $zero, 0
 
+.cond:
+    slti $t0, $s0, 10
+    beq  $t0, $zero, .exit
+
+    addi $s1, $s1, 1
+
+    addi $s0, $s0, 1
+    beq $zero, $zero, .cond
+.exit:
+    jr $ra

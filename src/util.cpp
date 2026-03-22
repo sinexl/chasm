@@ -9,6 +9,7 @@ std::string read_file_to_string(const char* filename)
         std::istreambuf_iterator(stream),
         std::istreambuf_iterator<char>()
     };
+    stream.close();
     return file_contents;
 }
 

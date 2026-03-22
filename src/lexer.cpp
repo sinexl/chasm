@@ -122,7 +122,9 @@ Token Lexer::next_token()
         return Token::comma(token_start_loc());
     default: break;
     // Register / Dollar label.
+    case '.':
     case '$':
+        char punctuation = peek();
         consume_char();
         string_view word_view = consume_word();
         bool label_definition = !is_eof() && peek() == ':';
@@ -130,7 +132,7 @@ Token Lexer::next_token()
         if (!label_definition)
         {
             auto reg_type = strings.find(word_view);
-            if (reg_type == strings.end())
+            if (reg_type == strings.end() || punctuation == '.')
             {
                 return Token::identifier(token_start_loc(), string(word_view));
             }
@@ -375,8 +377,12 @@ const char* get_string(IFormatInstruction instruction)
     {
     case IFormatInstruction::Addi: return "addi";
     case IFormatInstruction::Addiu: return "addiu";
+    case IFormatInstruction::Slti: return "slti";
+    case IFormatInstruction::Bne: return "bne";
+    case IFormatInstruction::Beq: return "beq";
     case IFormatInstruction::COUNT:
         throw std::out_of_range("lexer: invalid i_format instruction token");
+        break;
     }
 
     assert(false && "UNREACHABLE");
