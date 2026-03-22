@@ -89,7 +89,7 @@ class IFormat : public Format
     u8 rt;                 // [5] destination/target
     std::variant<          // [16] immediate value
         u16,               // immediate value (including address)
-        string             // unresolved label.
+        std::string        // unresolved label.
     > imm;
 
 public:
@@ -98,7 +98,7 @@ public:
         auto code = i_format_codes.find(op);
         assert(code != i_format_codes.end());
         auto opcode = code->second;
-        assert(holds_alternative<u16>(imm) && "ASSEMBLER BUG: Instruction is not resolved to be encoded");
+        assert(std::holds_alternative<u16>(imm) && "ASSEMBLER BUG: Instruction is not resolved to be encoded");
         u16 immediate = std::get<u16>(imm);
         return
             opcode << 26 |
@@ -122,18 +122,18 @@ public:
 
     void resolve(u8 bytes[2])
     {
-        assert(holds_alternative<string>(imm) && "Instruction is already resolved");
+        assert(std::holds_alternative<std::string>(imm) && "Instruction is already resolved");
         u16 result = u16_from_be(bytes);
         imm = result;
 
     }
-    string get_label() const
+    std::string get_label() const
     {
-        assert(holds_alternative<string>(imm) && "Instruction is already resolved and thus has no label");
-        return std::get<string>(imm);
+        assert(std::holds_alternative<std::string>(imm) && "Instruction is already resolved and thus has no label");
+        return std::get<std::string>(imm);
     }
 
-    IFormat(IFormatInstruction op, Reg rs, Reg rt, string label) : op(op), rs(reg_u8(rs)), rt(reg_u8(rt)), imm(std::move(label))
+    IFormat(IFormatInstruction op, Reg rs, Reg rt, std::string label) : op(op), rs(reg_u8(rs)), rt(reg_u8(rt)), imm(std::move(label))
     {
     }
 

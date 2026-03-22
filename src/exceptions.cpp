@@ -32,12 +32,12 @@ SourceLocation ParserException::get_location() const
 }
 
 UnexpectedToken::UnexpectedToken(SourceLocation location, TokenType expected, TokenType actual)
-    : ParserException(location), expected(vector{expected}), actual(actual)
+    : ParserException(location), expected(std::vector{expected}), actual(actual)
 {
 }
 
 
-UnexpectedToken::UnexpectedToken(SourceLocation location, vector<TokenType> expected, TokenType actual) :
+UnexpectedToken::UnexpectedToken(SourceLocation location, std::vector<TokenType> expected, TokenType actual) :
     ParserException(location), expected(std::move(expected)), actual(actual)
 {
 }

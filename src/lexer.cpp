@@ -11,11 +11,14 @@
 #include "op.hpp"
 #include "util.hpp"
 
+using std::string;
+using std::string_view;
+
 std::ostream& operator<<(std::ostream& os, const Integer& obj)
 {
-    if (holds_alternative<u64>(obj))
+    if (std::holds_alternative<u64>(obj))
         os << std::get<u64>(obj);
-    else if (holds_alternative<i64>(obj))
+    else if (std::holds_alternative<i64>(obj))
         os << std::get<i64>(obj);
 
     return os;
@@ -66,17 +69,26 @@ Token Lexer::next_token()
             state = save;
             auto r_instruction = r_format_strings.find(id_view);
             auto i_instruction = i_format_strings.find(id_view);
+            auto j_instruction = j_format_strings.find(id_view);
             if (r_instruction != r_format_strings.end())
             {
                 // Assert mutual exclusivity between hash sets.
                 assert(i_instruction == op::i_format_strings.end());
+                assert(j_instruction == op::j_format_strings.end());
                 return Token::r_format(token_start_loc(), r_instruction->second);
             }
             if (i_instruction != i_format_strings.end())
             {
                 // Assert mutual exclusivity between hash sets.
                 assert(r_instruction == op::r_format_strings.end());
+                assert(j_instruction == op::j_format_strings.end());
                 return Token::i_format(token_start_loc(), i_instruction->second);
+            }
+            if (j_instruction != j_format_strings.end())
+            {
+                assert(r_instruction == op::r_format_strings.end());
+                assert(i_instruction == op::i_format_strings.end());
+                return Token::j_format(token_start_loc(), j_instruction->second);
             }
 
             return Token::identifier(token_start_loc(), id);
@@ -92,7 +104,7 @@ Token Lexer::next_token()
             consume_char();
         }
         while (!is_eof() && isdigit(peek())) consume_char();
-        from_chars_result result;
+        std::from_chars_result result;
         Integer value;
         if (is_signed)
         {
@@ -109,7 +121,7 @@ Token Lexer::next_token()
 
         if (result.ec != std::errc())
         {
-            cerr << "Could not parse integer" << endl;
+            std::cerr << "Could not parse integer" << std::endl;
             exit(-1); // TODO: Proper errors from lexer.
         }
         return Token::integer(token_start_loc(), value);
@@ -143,7 +155,7 @@ Token Lexer::next_token()
     }
 
     consume_char();
-    cerr << "UNEXPECTED CHARACTER: " << current << endl;
+    std::cerr << "UNEXPECTED CHARACTER: " << current << std::endl;
     exit(-1); // TODO: Proper error handling from lexer.
 }
 
@@ -355,6 +367,7 @@ bool Token::is_eof() const
 
 const char* get_string(RFormatInstruction instruction)
 {
+    assert(8 == static_cast<int>(RFormatInstruction::COUNT));
     switch (instruction)
     {
     case RFormatInstruction::Add: return "add";
@@ -364,6 +377,7 @@ const char* get_string(RFormatInstruction instruction)
     case RFormatInstruction::Or: return "or";
     case RFormatInstruction::And: return "and";
     case RFormatInstruction::Jr: return "jr";
+    case RFormatInstruction::Nop: return "nop";
 
     case RFormatInstruction::COUNT:
         throw std::out_of_range("lexer: invalid r_format instruction token");
@@ -373,6 +387,7 @@ const char* get_string(RFormatInstruction instruction)
 
 const char* get_string(IFormatInstruction instruction)
 {
+    static_assert(5 == static_cast<int>(IFormatInstruction::COUNT));
     switch (instruction)
     {
     case IFormatInstruction::Addi: return "addi";
@@ -390,6 +405,7 @@ const char* get_string(IFormatInstruction instruction)
 
 const char* get_string(JFormatInstruction instruction)
 {
+    static_assert(1 == static_cast<int>(JFormatInstruction::COUNT));
     switch (instruction)
     {
     case JFormatInstruction::J:

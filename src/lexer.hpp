@@ -6,8 +6,8 @@
 #include "op.hpp"
 #include "register.hpp"
 #include "util.hpp"
-using namespace std;
 using namespace op;
+using std::size_t;
 
 bool is_id_start(char c);
 
@@ -39,7 +39,7 @@ std::ostream& operator<<(std::ostream& os, const Integer& obj);
 class Token
 {
 public:
-    using Value = variant<
+    using Value = std::variant<
         std::monostate,          // for tokens without payload (e.g. comma, eof)
         std::string,
         Integer,
@@ -100,7 +100,7 @@ class Lexer
     State token_start;
 
 public:
-    Lexer(string_view src, const char* filepath);
+    Lexer(std::string_view src, const char* filepath);
 
     Token next_token();
 

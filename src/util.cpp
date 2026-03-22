@@ -1,8 +1,9 @@
 #include "util.hpp"
 
+#include <filesystem>
 #include <fstream>
 
-std::string read_file_to_string(const char* filename)
+std::string read_file_to_string(std::filesystem::path filename)
 {
     std::ifstream stream{filename};
     std::string file_contents{

@@ -33,7 +33,7 @@ public:
     TokenType actual;
 
     UnexpectedToken(SourceLocation location, TokenType expected, TokenType actual);
-    UnexpectedToken(SourceLocation location, vector<TokenType> expected, TokenType actual);
+    UnexpectedToken(SourceLocation location, std::vector<TokenType> expected, TokenType actual);
 
 protected:
     void display(std::ostream& os) const noexcept override;

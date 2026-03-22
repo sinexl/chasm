@@ -1,6 +1,7 @@
 #ifndef UTIL_H_
 #define UTIL_H_
 
+#include <filesystem>
 
 #include <cstdint>
 #include <string>
@@ -19,7 +20,7 @@ constexpr u32 MASK6  = 0x3F;       // 0000...111111    (6 rightmost bits)
 constexpr u32 MASK16 = 0xFFFF;     // 0000...111111... (16 rightmost bits)
 constexpr u32 MASK26 = 0x03FFFFFF; // 0000...111111... (26 rightmost bits)
 
-std::string read_file_to_string(const char* filename);
+std::string read_file_to_string(std::filesystem::path filename);
 
 struct SourceLocation {
     std::string_view file;

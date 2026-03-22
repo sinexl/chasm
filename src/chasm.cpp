@@ -2,12 +2,11 @@
 #include <cassert>
 #include <fstream>
 #include <bitset>
+#include <filesystem>
 #include <iomanip>
 #include <variant>
 
-#include <iostream>
 #include <limits>
-#include <memory>
 #include <ostream>
 #include <stack>
 #include <string_view>
@@ -15,14 +14,20 @@
 
 #include "exceptions.hpp"
 #include "format.hpp"
+#include "io.hpp"
 #include "register.hpp"
 #include "util.hpp"
 
 #include "lexer.hpp"
 #include "op.hpp"
 
-using namespace std;
 using namespace reg;
+
+using std::vector;
+using std::string;
+using std::string_view;
+using std::stack;
+using std::bitset;
 
 class Assembler
 {
@@ -123,16 +128,16 @@ public:
         push_instruction(new IFormat(type, src, dst, bytes));
     }
 
-    void i_format_label(IFormatInstruction type, Reg dst, Reg src, string_view label)
+    void i_format_label(IFormatInstruction type, Reg dst, Reg src, string label)
     {
         u32 pc = ir.size();
 
-        auto addr_pointer = labels.find(string{label});
+        auto addr_pointer = labels.find(label);
         // Label was not defined yet, add the instruction to backpatch list.
         if (addr_pointer == labels.end())
         {
-            auto result = new IFormat(type, src, dst, string{label});
-            i_formats_to_backpatch.push(make_pair(result, pc));
+            auto result = new IFormat(type, src, dst, label);
+            i_formats_to_backpatch.push(std::make_pair(result, pc));
             push_instruction(result);
             return;
         }
@@ -150,9 +155,9 @@ public:
         push_instruction(new RFormat(RFormatInstruction::Jr, dst, Reg::zero, Reg::zero, 0));
     }
 
-    void label(string_view name)
+    void label(string name)
     {
-        labels.insert({string{name}, ir.size()});
+        labels.insert({name, ir.size()});
     }
 
     void nop()
@@ -261,7 +266,7 @@ void parse_program(Lexer& lexer, Assembler& assembler)
     do
     {
         Token t = lexer.next_token();
-        cout << t.get_source_location() << ": " << t << endl;
+        if (args.debug_assembler()) std::cout << t.get_source_location() << ": " << t << std::endl;
 
         switch (t.get_type())
         {
@@ -287,7 +292,8 @@ void parse_program(Lexer& lexer, Assembler& assembler)
             }
 
         case TokenType::JFormatInstruction:
-            assert(false && "NOT IMPLEMENTED YET: J FORMAT INSTRUCTIONS");
+            parse_j_format(lexer, assembler, t.get_j_format());
+            break;
 
         case TokenType::Identifier:
             // I.e, assembler directives
@@ -304,22 +310,36 @@ void parse_program(Lexer& lexer, Assembler& assembler)
 }
 
 
-int main()
+void debug_result(const vector<u8>& result)
+{
+    for (size_t i = 0; i < result.size(); i += 4)
+    {
+        u32 inst = u32_from_be(result.data() + i);
+        std::cout << std::hex << "0x" << std::setfill('0') << std::setw(8) << inst << std::dec << " (0b" << std::bitset<
+            32>(inst) << ") " << inst << std::endl;
+    }
+}
+
+int main(int argc, const char* argv[])
 {
     using namespace op;
+    using namespace std;
+
     assert(RFormat(RFormatInstruction::Add, Reg::t1, Reg::t2, Reg::t0, 0).encode() == 0x12a4020);
     std::array<u8, 2> bytes;
     i16_to_be(bytes.data(), -50);
     assert(IFormat(IFormatInstruction::Addi ,Reg::s1, Reg::t0, bytes.data()).encode() == 0x2228ffce);
-    const char* path = "./dev/main.asm";
-    auto contents = read_file_to_string(path);
+
+    auto args = AssemblerArgs{argc, argv};
+
+    auto contents = read_file_to_string(args.input());
 
     auto view = string_view(contents);
-    auto lexer = Lexer(view, path);
+    auto lexer = Lexer(view, args.input().c_str());
     auto assembler = Assembler{};
     try
     {
-        parse_program(lexer, assembler);
+        parse_program(lexer, assembler, args);
     }
     catch (ParserException& e)
     {
@@ -330,15 +350,13 @@ int main()
     auto result = vector<u8>{};
     assembler.assemble(result);
     assert(result.size() % 4 == 0);
-    cout << "Decoding each word:" << endl;
-    for (size_t i = 0; i < result.size(); i += 4)
+    if (args.debug_assembler())
     {
-        u32 inst = u32_from_be(result.data() + i);
-        cout << std::hex << "0x" << std::setfill('0') << std::setw(8) << inst << std::dec << " (0b" << std::bitset<
-            32>(inst) << ") " << inst << endl;
+        cout << "Decoding each word generated:" << endl;
+        debug_result(result);
     }
     {
-        std::ofstream file{"./dev/output.bin", std::ios::binary};
+        std::ofstream file{args.output(), std::ios::binary};
 
         file.write(reinterpret_cast<char*>(result.data()), result.size());
         file.close();
