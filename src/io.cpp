@@ -49,6 +49,11 @@ AssemblerArgs::AssemblerArgs(int argc, const char* argv[])
         }
         else if (arg == "--debug-assembler")
         {
+            if (debug_assembler_)
+            {
+                usage(program_name_, "duplicate option: --debug-assembler");
+                exit(-1);
+            }
             debug_assembler_ = true;
         }
         else

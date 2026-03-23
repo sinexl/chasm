@@ -1,4 +1,3 @@
-.set noreorder
 main:
     addi $s0, $zero, 0
     addi $s1, $zero, 0
@@ -7,9 +6,9 @@ main:
     slti $t0, $s0, 10
     beq  $t0, $zero, .exit
 
-    addi $s1, $s1, 1
+    add $s1, $s1, $s0
 
     addi $s0, $s0, 1
-    beq $zero, $zero, .cond
+    j .cond
 .exit:
     jr $ra

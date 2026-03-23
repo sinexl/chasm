@@ -19,6 +19,7 @@ constexpr u32 MASK5  = 0x1F;       // 0000...011111    (5 rightmost bits)
 constexpr u32 MASK6  = 0x3F;       // 0000...111111    (6 rightmost bits)
 constexpr u32 MASK16 = 0xFFFF;     // 0000...111111... (16 rightmost bits)
 constexpr u32 MASK26 = 0x03FFFFFF; // 0000...111111... (26 rightmost bits)
+constexpr u32 REGION_MASK = 0x3C000000; // [29:26]. Since assembler stores word addresses (so indices in array), these bits are the 256MB region bits.
 
 std::string read_file_to_string(std::filesystem::path filename);
 

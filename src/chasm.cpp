@@ -37,6 +37,7 @@ class Assembler
 
     // holds the pair of instruction and it's address
     stack<std::pair<IFormat*, u32>> i_formats_to_backpatch;
+    stack<std::pair<JFormat*, u32>> j_formats_to_backpatch;
 
     void push_instruction(Format* format)
     {
@@ -58,25 +59,42 @@ class Assembler
 
     // both pc and target_pc are instruction addresses (words), not byte addresses.
     // This function returns whether operation succeeded, or jump is to far away
-    [[nodiscard]] static bool calculate_near_jump_pc_relative(u32 pc, u32 target_pc, u8 result[2])
+    [[nodiscard]] static bool calculate_near_jump_pc_relative(u32 pc, u32 target_pc, u16& result)
     {
         // MIPS IMMEDIATE ADDRESSING: Pc-relative.
         // target_pc = (PC_byte + 4) + offset * 4
         // The factor of 4 (or << 2) is chosen because each instruction has length of 4.
-        // Since we address instructions by MIPS words (4 bytes), the factor of 4 will be omitted.
+        // Since in assembler instructions are addressed by MIPS words (4 bytes), the factor of 4 will be omitted.
         // thus, target_pc = (PC_word + 1) + offset =>  offset = target_pc - (PC_word + 1)
 
         // Note that static_cast doesn't change internal representation (2's complement) of numbers,
         // we only do the cast for convenience of checking boundaries.
         i32 offset = static_cast<i32>(target_pc) - (static_cast<i32>(pc) + 1);
         if (offset < std::numeric_limits<i16>::min() || offset > std::numeric_limits<i16>::max()) return false;
-        i16_to_be(result, offset);
-        return true;
 
+        result = offset;
+
+        return true;
     }
+
+    // both pc and target_pc are instruction addresses (words), not byte addresses.
+    // This function returns whether operation succeeded, or jump is to far away
+    [[nodiscard]] static bool calculate_pseudo_direct_jump(u32 pc, u32 target_pc, u32& result)
+    {
+        u32 current_region = (pc + 1) & REGION_MASK; // take bits [29:26] (the region 256 MB Region)
+        u32 target_region = target_pc & REGION_MASK;
+
+        if (current_region != target_region) // If regions differ, jump is long
+            return false;
+
+        result = target_pc;
+        return true;
+    }
+
 
     void backpatch_all()
     {
+        // TODO: Factor out duplicate code used for backpatching of J & I format instructions.
         while (!i_formats_to_backpatch.empty())
         {
             auto instruction_pair = i_formats_to_backpatch.top();
@@ -85,13 +103,29 @@ class Assembler
             auto instruction = instruction_pair.first;
             auto pc = instruction_pair.second;
 
-            auto target = labels.find(string{instruction->get_label()});
+            auto target = labels.find(instruction->get_label());
             if (target == labels.end())
                 assert(false && "TODO: Proper error handling"); // TODO: Proper error handling
 
-            u8 bytes[2];
+            u16 bytes;
             calculate_near_jump_pc_relative(pc, target->second, bytes);
             instruction->resolve(bytes);
+        }
+        while (!j_formats_to_backpatch.empty())
+        {
+            auto instruction_pair = j_formats_to_backpatch.top();
+            j_formats_to_backpatch.pop();
+
+            auto instruction = instruction_pair.first;
+            auto pc = instruction_pair.second;
+
+            auto target = labels.find(instruction->get_label());
+            if (target == labels.end())
+                assert(false && "TODO: Proper error handling"); // TODO: Proper error handling
+
+            u32 final_destination = 0;
+            calculate_pseudo_direct_jump(pc, target->second, final_destination);
+            instruction->resolve(final_destination);
         }
     }
 
@@ -116,16 +150,13 @@ public:
     // Both functions are provided explicitly in order to make library interface easier to work from C & C++.
     void i_format_u16(IFormatInstruction type, Reg dst, Reg src, u16 value)
     {
-        u8 bytes[2];
-        u16_to_be(bytes, value);
-        push_instruction(new IFormat(type, src, dst, bytes));
+
+        push_instruction(new IFormat(type, src, dst, value));
     }
 
     void i_format_i16(IFormatInstruction type, Reg dst, Reg src, i16 value)
     {
-        u8 bytes[2];
-        i16_to_be(bytes, value);
-        push_instruction(new IFormat(type, src, dst, bytes));
+        push_instruction(new IFormat(type, src, dst, static_cast<u16>(value)));
     }
 
     void i_format_label(IFormatInstruction type, Reg dst, Reg src, string label)
@@ -142,10 +173,29 @@ public:
             return;
         }
 
-        u8 final_address[2];
+        u16 final_address;
         u32 target = addr_pointer->second;
         calculate_near_jump_pc_relative(pc, target, final_address);
         push_instruction(new IFormat(type, src, dst, final_address));
+    }
+
+
+    void j_format_label(JFormatInstruction type, string label)
+    {
+        u32 pc = ir.size();
+        auto addr_pointer = labels.find(label);
+        if (addr_pointer == labels.end())
+        {
+            auto result = new JFormat(type, label);
+            j_formats_to_backpatch.push(std::make_pair(result, pc));
+            push_instruction(result);
+            return;
+        }
+
+        u32 final_address = 0;
+        u32 target = addr_pointer->second;
+        calculate_pseudo_direct_jump(pc, target, final_address);
+        push_instruction(new JFormat(type, final_address));
     }
 
 
@@ -260,7 +310,13 @@ void parse_i_format(Lexer& lexer, Assembler& assembler, IFormatInstruction i_for
     throw UnexpectedToken(value.get_source_location(), {TokenType::Identifier, TokenType::Integer}, TokenType::Comma);
 }
 
-void parse_program(Lexer& lexer, Assembler& assembler)
+void parse_j_format(Lexer& lexer, Assembler& assembler, JFormatInstruction j_format)
+{
+    string label = expect(lexer, TokenType::Identifier).get_text();
+    assembler.j_format_label(j_format, label);
+}
+
+void parse_program(Lexer& lexer, Assembler& assembler, const AssemblerArgs& args)
 {
     bool stop = false;
     do
@@ -326,9 +382,7 @@ int main(int argc, const char* argv[])
     using namespace std;
 
     assert(RFormat(RFormatInstruction::Add, Reg::t1, Reg::t2, Reg::t0, 0).encode() == 0x12a4020);
-    std::array<u8, 2> bytes;
-    i16_to_be(bytes.data(), -50);
-    assert(IFormat(IFormatInstruction::Addi ,Reg::s1, Reg::t0, bytes.data()).encode() == 0x2228ffce);
+    assert(IFormat(IFormatInstruction::Addi ,Reg::s1, Reg::t0, static_cast<u16>(-50)).encode() == 0x2228ffce);
 
     auto args = AssemblerArgs{argc, argv};
 

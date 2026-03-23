@@ -114,17 +114,14 @@ public:
         return false;
     }
 
-    IFormat(IFormatInstruction op, Reg rs, Reg rt, u8 bytes[2]) : op(op), rs(reg_u8(rs)), rt(reg_u8(rt))
+    IFormat(IFormatInstruction op, Reg rs, Reg rt, u16 immediate) : op(op), rs(reg_u8(rs)), rt(reg_u8(rt)), imm(immediate)
     {
-        u16 val = u16_from_be(bytes);
-        imm = val;
     }
 
-    void resolve(u8 bytes[2])
+    void resolve(u16 immediate)
     {
         assert(std::holds_alternative<std::string>(imm) && "Instruction is already resolved");
-        u16 result = u16_from_be(bytes);
-        imm = result;
+        imm = immediate;
 
     }
     std::string get_label() const
@@ -140,25 +137,59 @@ public:
 };
 
 
-template <
-    const u8 op // [6] - opcode
->
 class JFormat : public Format
 {
-    // opcode       [6]
-    u32 address; // [26] address
+    JFormatInstruction op; // [6]
+    std::variant<          // [26] address
+        u32,         // Address (Lower 26 bits only)
+        std::string  // Unresolved label.
+    > address;
 
-public:
-    explicit JFormat(u32 address)
-        : address(address)
+    static void ensure_fits(u32 address)
     {
         assert((address & ~MASK26) == 0 && "JFormat: Address value out of range");
+    }
+public:
+
+    JFormat(JFormatInstruction op, u32 address) : op(op)
+    {
+        ensure_fits(address);
+        this->address = address;
+    }
+
+    JFormat(JFormatInstruction op, std::string label) : op(op), address(std::move(label))
+    {
+    }
+
+    bool is_control_flow() const override
+    {
+        static_assert(1 == static_cast<int>(JFormatInstruction::COUNT));
+        return true;
     }
 
     u32 encode() const override
     {
-        return op << 26
-            | address;
+        auto code = j_format_codes.find(op);
+        assert(code != j_format_codes.end());
+        auto opcode = code->second;
+        assert(std::holds_alternative<u32>(address) && "ASSEMBLER BUG: Instruction is not resolved to be encoded");
+        u32 addr = std::get<u32>(address);
+        return
+            opcode << 26 |
+                addr;
+    }
+
+    void resolve(u32 addr)
+    {
+        assert(std::holds_alternative<std::string>(address) && "Instruction is already resolved");
+        ensure_fits(addr);
+        address = addr;
+
+    }
+    std::string get_label() const
+    {
+        assert(std::holds_alternative<std::string>(address) && "Instruction is already resolved and thus has no label");
+        return std::get<std::string>(address);
     }
 };
 
